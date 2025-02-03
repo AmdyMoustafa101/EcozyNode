@@ -1,0 +1,138 @@
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const User = require('../models/User');
+
+const router = express.Router();
+
+// Configuration de multer pour l'upload des fichiers
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, './uploads/'); // Dossier où les fichiers seront stockés
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname)); // Nom unique
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  fileFilter: function (req, file, cb) {
+    // Vérifier l'extension du fichier
+    const fileTypes = /jpeg|jpg|png/;
+    const extName = fileTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimeType = fileTypes.test(file.mimetype);
+
+    if (mimeType && extName) {
+      return cb(null, true);
+    }
+    cb('Seules les images (jpeg, jpg, png) sont autorisées.');
+  },
+});
+
+//  Route pour créer un utilisateur avec upload d'image
+router.post('/users', upload.single('photo'), async (req, res) => {
+  try {
+    const { nom, prenom, carteRFID, telephone, role } = req.body;
+
+    // Générer un code secret unique
+    const codeSecret = await User.generateUniqueCodeSecret();
+
+    // Récupérer le chemin de l'image si elle existe
+    const photo = req.file ? req.file.path : null;
+
+    // Création de l'utilisateur
+    const newUser = new User({
+      nom,
+      prenom,
+      photo,
+      codeSecret,
+      carteRFID,
+      telephone,
+      role: role || 'user', // Si le rôle n'est pas spécifié, il prend la valeur par défaut 'user'
+    });
+
+    await newUser.save();
+
+    // Renvoyer le codeSecret dans la réponse
+    res.status(201).json({ 
+      message: 'Utilisateur créé avec succès', 
+      user: newUser,
+      codeSecret: newUser.codeSecret // Ajouter explicitement le codeSecret
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur lors de la création de l’utilisateur', error });
+  }
+});
+
+//  Route pour récupérer tous les utilisateurs
+router.get('/users', async (req, res) => {
+  try {
+    const users = await User.find(); // Récupérer uniquement les utilisateurs non archivés
+    res.status(200).json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur lors de la récupération des utilisateurs', error });
+  }
+});
+
+//  Route pour mettre à jour un utilisateur
+router.patch('/users/:id', upload.single('photo'), async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { nom, prenom, telephone, role } = req.body;
+
+    // Récupérer l'utilisateur existant
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    // Mettre à jour les champs de l'utilisateur
+    user.nom = nom || user.nom;
+    user.prenom = prenom || user.prenom;
+    user.telephone = telephone || user.telephone;
+    user.role = role || user.role;
+
+    // Mettre à jour la photo si une nouvelle photo est fournie
+    if (req.file) {
+      user.photo = req.file.path;
+    }
+
+    // Sauvegarder les modifications
+    const updatedUser = await user.save();
+
+    res.status(200).json({ message: 'Utilisateur mis à jour avec succès', user: updatedUser });
+  } catch (error) {
+    res.status(500).json({ message: 'Erreur lors de la mise à jour de l’utilisateur', error });
+  }
+});
+
+// Route pour archiver ou désarchiver un utilisateur
+router.patch('/users/:id/archive', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { archived } = req.body; // `archived` peut être true ou false
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { archived },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    res.status(200).json({
+      message: `Utilisateur ${archived ? 'archivé' : 'désarchivé'} avec succès`,
+      user: updatedUser
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: `Erreur lors de ${archived ? 'l\'archivage' : 'le désarchivage'} de l’utilisateur`,
+      error
+    });
+  }
+});
+
+module.exports = router;
