@@ -47,6 +47,7 @@ const userSchema = new mongoose.Schema({
   },
 });
 
+
 // Middleware pour mettre à jour la date de mise à jour avant chaque sauvegarde
 userSchema.pre('save', function (next) {
   this.updateDate = Date.now();

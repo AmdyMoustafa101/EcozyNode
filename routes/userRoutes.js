@@ -2,6 +2,13 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+
+
+
+// Clé secrète pour signer les tokens (stockez-la dans un fichier .env en production)
+const SECRET_KEY = "secrète_unique";
+
 
 const router = express.Router();
 
@@ -132,6 +139,42 @@ router.patch('/users/:id/archive', async (req, res) => {
       message: `Erreur lors de ${archived ? 'l\'archivage' : 'le désarchivage'} de l’utilisateur`,
       error
     });
+  }
+});
+
+//Router pour la connectionrouter.post('/login', async (req, res) => {
+ 
+router.post('/login', async (req, res) => {
+  try {
+    const { codeSecret } = req.body;
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.findOne({ codeSecret });
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    // Vérifier si l'utilisateur est archivé
+    if (user.archived) { 
+      return res.status(403).json({ message: 'Utilisateur archivé' });
+    }
+
+    // Créer un token pour l'utilisateur
+    const token = jwt.sign(
+      { id: user._id, codeSecret: user.codeSecret }, // Payload
+      SECRET_KEY, // Clé secrète
+      { expiresIn: '1h' } // Expiration (exemple : 1 heure)
+    );
+
+    res.status(200).json({
+      message: 'Connexion réussie',
+      token,
+      user: { id: user._id, role: user.role } // Ne retournez pas de données sensibles
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Erreur lors de la connexion', error });
   }
 });
 
