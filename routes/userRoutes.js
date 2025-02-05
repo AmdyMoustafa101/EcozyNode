@@ -1,21 +1,18 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const User = require('../models/User');
-const jwt = require('jsonwebtoken');
-
-
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const User = require("../models/User");
+const jwt = require("jsonwebtoken");
 
 // Clé secrète pour signer les tokens (stockez-la dans un fichier .env en production)
 const SECRET_KEY = "secrète_unique";
-
 
 const router = express.Router();
 
 // Configuration de multer pour l'upload des fichiers
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, './uploads/'); // Dossier où les fichiers seront stockés
+    cb(null, "./uploads/"); // Dossier où les fichiers seront stockés
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + path.extname(file.originalname)); // Nom unique
@@ -27,18 +24,20 @@ const upload = multer({
   fileFilter: function (req, file, cb) {
     // Vérifier l'extension du fichier
     const fileTypes = /jpeg|jpg|png/;
-    const extName = fileTypes.test(path.extname(file.originalname).toLowerCase());
+    const extName = fileTypes.test(
+      path.extname(file.originalname).toLowerCase()
+    );
     const mimeType = fileTypes.test(file.mimetype);
 
     if (mimeType && extName) {
       return cb(null, true);
     }
-    cb('Seules les images (jpeg, jpg, png) sont autorisées.');
+    cb("Seules les images (jpeg, jpg, png) sont autorisées.");
   },
 });
 
 //  Route pour créer un utilisateur avec upload d'image
-router.post('/users', upload.single('photo'), async (req, res) => {
+router.post("/users", upload.single("photo"), async (req, res) => {
   try {
     const { nom, prenom, carteRFID, telephone, role } = req.body;
 
@@ -56,34 +55,39 @@ router.post('/users', upload.single('photo'), async (req, res) => {
       codeSecret,
       carteRFID,
       telephone,
-      role: role || 'user', // Si le rôle n'est pas spécifié, il prend la valeur par défaut 'user'
+      role: role || "user", // Si le rôle n'est pas spécifié, il prend la valeur par défaut 'user'
     });
 
     await newUser.save();
 
     // Renvoyer le codeSecret dans la réponse
-    res.status(201).json({ 
-      message: 'Utilisateur créé avec succès', 
+    res.status(201).json({
+      message: "Utilisateur créé avec succès",
       user: newUser,
-      codeSecret: newUser.codeSecret // Ajouter explicitement le codeSecret
+      codeSecret: newUser.codeSecret, // Ajouter explicitement le codeSecret
     });
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la création de l’utilisateur', error });
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la création de l’utilisateur", error });
   }
 });
 
 //  Route pour récupérer tous les utilisateurs
-router.get('/users', async (req, res) => {
+router.get("/users", async (req, res) => {
   try {
     const users = await User.find(); // Récupérer uniquement les utilisateurs non archivés
     res.status(200).json(users);
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la récupération des utilisateurs', error });
+    res.status(500).json({
+      message: "Erreur lors de la récupération des utilisateurs",
+      error,
+    });
   }
 });
 
 //  Route pour mettre à jour un utilisateur
-router.patch('/users/:id', upload.single('photo'), async (req, res) => {
+router.patch("/users/:id", upload.single("photo"), async (req, res) => {
   try {
     const userId = req.params.id;
     const { nom, prenom, telephone, role } = req.body;
@@ -91,7 +95,7 @@ router.patch('/users/:id', upload.single('photo'), async (req, res) => {
     // Récupérer l'utilisateur existant
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
 
     // Mettre à jour les champs de l'utilisateur
@@ -108,14 +112,20 @@ router.patch('/users/:id', upload.single('photo'), async (req, res) => {
     // Sauvegarder les modifications
     const updatedUser = await user.save();
 
-    res.status(200).json({ message: 'Utilisateur mis à jour avec succès', user: updatedUser });
+    res.status(200).json({
+      message: "Utilisateur mis à jour avec succès",
+      user: updatedUser,
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Erreur lors de la mise à jour de l’utilisateur', error });
+    res.status(500).json({
+      message: "Erreur lors de la mise à jour de l’utilisateur",
+      error,
+    });
   }
 });
 
 // Route pour archiver ou désarchiver un utilisateur
-router.patch('/users/:id/archive', async (req, res) => {
+router.patch("/users/:id/archive", async (req, res) => {
   try {
     const userId = req.params.id;
     const { archived } = req.body; // `archived` peut être true ou false
@@ -127,54 +137,96 @@ router.patch('/users/:id/archive', async (req, res) => {
     );
 
     if (!updatedUser) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
 
     res.status(200).json({
-      message: `Utilisateur ${archived ? 'archivé' : 'désarchivé'} avec succès`,
-      user: updatedUser
+      message: `Utilisateur ${archived ? "archivé" : "désarchivé"} avec succès`,
+      user: updatedUser,
     });
   } catch (error) {
     res.status(500).json({
-      message: `Erreur lors de ${archived ? 'l\'archivage' : 'le désarchivage'} de l’utilisateur`,
-      error
+      message: `Erreur lors de ${
+        archived ? "l'archivage" : "le désarchivage"
+      } de l’utilisateur`,
+      error,
+    });
+  }
+});
+
+router.post("/assign-rfid", async (req, res) => {
+  const { userId, carteRFID } = req.body;
+
+  try {
+    // Trouver l'utilisateur par son ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    // Mettre à jour le champ carteRFID
+    user.carteRFID = carteRFID;
+    await user.save();
+
+    res.status(200).json({ message: "Carte RFID associée avec succès", user });
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de l'association de la carte RFID",
+      error: error.message,
     });
   }
 });
 
 //Router pour la connectionrouter.post('/login', async (req, res) => {
- 
-router.post('/login', async (req, res) => {
-  try {
-    const { codeSecret } = req.body;
 
-    // Vérifier si l'utilisateur existe
-    const user = await User.findOne({ codeSecret });
+router.post("/login", async (req, res) => {
+  try {
+    const { codeSecret, carteRFID } = req.body;
+    let user;
+
+    // Vérifier si l'utilisateur existe avec le codeSecret ou l'UID de la carte RFID
+    if (codeSecret) {
+      user = await User.findOne({ codeSecret });
+    } else if (carteRFID) {
+      user = await User.findOne({ carteRFID });
+    } else {
+      return res
+        .status(400)
+        .json({ message: "Code secret ou carte RFID requis" });
+    }
+
     if (!user) {
-      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+      return res
+        .status(404)
+        .json({ message: "Utilisateur non trouvé ou identifiants invalides" });
     }
 
     // Vérifier si l'utilisateur est archivé
-    if (user.archived) { 
-      return res.status(403).json({ message: 'Utilisateur archivé' });
+    if (user.archived) {
+      return res.status(403).json({ message: "Utilisateur archivé" });
     }
 
     // Créer un token pour l'utilisateur
     const token = jwt.sign(
       { id: user._id, codeSecret: user.codeSecret }, // Payload
       SECRET_KEY, // Clé secrète
-      { expiresIn: '1h' } // Expiration (exemple : 1 heure)
+      { expiresIn: "1h" } // Expiration (exemple : 1 heure)
     );
 
     res.status(200).json({
-      message: 'Connexion réussie',
+      message: "Connexion réussie",
       token,
-      user: { id: user._id, role: user.role } // Ne retournez pas de données sensibles
+      user: {
+        id: user._id,
+        role: user.role,
+        nom: user.nom,
+        prenom: user.prenom,
+        photo: user.photo,
+      },
     });
-
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Erreur lors de la connexion', error });
+    res.status(500).json({ message: "Erreur lors de la connexion", error });
   }
 });
 
