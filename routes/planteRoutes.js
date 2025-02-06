@@ -42,6 +42,16 @@ router.get('/plantes', async (req, res) => {
   }
 });
 
+// Récupérer toutes les plantes dont l'état est true
+router.get('/plantes/programme', async (req, res) => {
+  try {
+    const plantes = await Plante.find({ etat: true });
+    res.json(plantes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Récupérer une plante par son ID
 router.get('/plantes/:id', async (req, res) => {
   try {
@@ -101,6 +111,44 @@ router.delete('/plantes/:id', async (req, res) => {
     res.status(200).json({ message: 'Plante supprimée avec succès' });
   } catch (error) {
     res.status(500).json({ message: 'Erreur lors de la suppression de la plante', error });
+  }
+});
+
+// Route pour activer une plante
+router.put('/plantes/:id/activer', async (req, res) => {
+  try {
+    const plante = await Plante.findByIdAndUpdate(
+      req.params.id,
+      { etat: true },
+      { new: true }
+    );
+
+    if (!plante) {
+      return res.status(404).send({ message: 'Plante non trouvée' });
+    }
+
+    res.send(plante);
+  } catch (error) {
+    res.status(500).send(error);
+  }
+});
+
+// Route pour désactiver une plante
+router.put('/plantes/:id/desactiver', async (req, res) => {
+  try {
+    const plante = await Plante.findByIdAndUpdate(
+      req.params.id,
+      { etat: false },
+      { new: true }
+    );
+
+    if (!plante) {
+      return res.status(404).send({ message: 'Plante non trouvée' });
+    }
+
+    res.send(plante);
+  } catch (error) {
+    res.status(500).send(error);
   }
 });
 
