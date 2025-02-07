@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
   nom: {
@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false,
     default: null,
+    unique: true,
   },
   telephone: {
     type: String,
@@ -34,8 +35,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['admin', 'user'], // Seules ces deux valeurs sont autorisées
-    default: 'user', // Par défaut, le rôle est 'user'
+    enum: ["admin", "user"], // Seules ces deux valeurs sont autorisées
+    default: "user", // Par défaut, le rôle est 'user'
   },
   createDate: {
     type: Date,
@@ -47,9 +48,8 @@ const userSchema = new mongoose.Schema({
   },
 });
 
-
 // Middleware pour mettre à jour la date de mise à jour avant chaque sauvegarde
-userSchema.pre('save', function (next) {
+userSchema.pre("save", function (next) {
   this.updateDate = Date.now();
   next();
 });
@@ -70,6 +70,6 @@ userSchema.statics.generateUniqueCodeSecret = async function () {
   return codeSecret;
 };
 
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model("User", userSchema);
 
 module.exports = User;

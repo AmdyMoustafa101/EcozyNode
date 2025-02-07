@@ -21,7 +21,7 @@ app.use(
 
 // Configuration du port série pour lire les données de l'Arduino
 const port = new SerialPort({
-  path: "COM7", // Vérifiez que le chemin est correct pour votre système
+  path: "COM3", // Vérifiez que le chemin est correct pour votre système
   baudRate: 9600,
 });
 const parser = port.pipe(new ReadlineParser({ delimiter: "\n" }));

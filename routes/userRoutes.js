@@ -143,6 +143,35 @@ router.patch("/users/:id", upload.single("photo"), async (req, res) => {
   }
 });
 
+// Route pour désassigner la carte d'un utilisateur
+router.post("/users/:id/remove-card", async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Récupérer l'utilisateur existant
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    // Supprimer la carte RFID
+    user.carteRFID = null;
+
+    // Sauvegarder les modifications
+    const updatedUser = await user.save();
+
+    res.status(200).json({
+      message: "Carte désassignée avec succès",
+      user: updatedUser,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de la désassignation de la carte",
+      error,
+    });
+  }
+});
+
 // Route pour archiver ou désarchiver un utilisateur
 router.patch("/users/:id/archive", async (req, res) => {
   try {
@@ -176,14 +205,23 @@ router.patch("/users/:id/archive", async (req, res) => {
 router.post("/assign-rfid", async (req, res) => {
   const { userId, carteRFID } = req.body;
 
+  if (!userId || !carteRFID) {
+    return res.status(400).json({ message: "Données manquantes" });
+  }
+
   try {
-    // Trouver l'utilisateur par son ID
+    const existingUser = await User.findOne({ carteRFID });
+    if (existingUser && existingUser._id.toString() !== userId) {
+      return res.status(400).json({
+        message: "Cette carte RFID est déjà assignée à un autre utilisateur",
+      });
+    }
+
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
 
-    // Mettre à jour le champ carteRFID
     user.carteRFID = carteRFID;
     await user.save();
 
