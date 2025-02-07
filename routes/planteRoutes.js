@@ -104,4 +104,14 @@ router.delete('/plantes/:id', async (req, res) => {
   }
 });
 
+
+// Route pour créer une nouvelle programmation d'arrosage
+router.post('/programmation', async (req, res) => {
+  const { plantId, startDate, endDate } = req.body;
+  const programmation = new Programmation({ plantId, startDate, endDate });
+  await programmation.save();
+  res.status(200).send('Programmation d\'arrosage créée');
+});
+
+
 module.exports = router;

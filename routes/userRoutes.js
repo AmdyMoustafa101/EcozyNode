@@ -86,6 +86,25 @@ router.get("/users", async (req, res) => {
   }
 });
 
+//  Route pour récupérer un utilisateur par son ID
+router.get("/users/:id", async (req, res) => {  
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId); // Récupérer uniquement les utilisateurs non archivés
+
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de la récupération de l'utilisateur",
+      error,
+    });
+  }
+});
+
 //  Route pour mettre à jour un utilisateur
 router.patch("/users/:id", upload.single("photo"), async (req, res) => {
   try {
