@@ -3,6 +3,7 @@ const connectDB = require('./config/db.js');
 const userRoutes = require('./routes/userRoutes.js');
 const planteRoutes = require('./routes/planteRoutes');
 const Log = require('./models/log');
+const programmeArrosageRoutes = require('./routes/programmeArrosageRoutes');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -113,6 +114,8 @@ app.post('/logout', async (req, res) => {
 });
 
 
+// Utilisation des routes des programmaArrosage
+app.use('/api/', programmeArrosageRoutes);
 
 // Démarrage du serveur
 const PORT = process.env.PORT || 3500;

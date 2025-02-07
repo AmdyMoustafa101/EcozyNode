@@ -52,6 +52,10 @@ const planteSchema = new mongoose.Schema({
       message: 'Le champ "heuresArrosage" doit contenir exactement le nombre d\'heures spécifié dans "periode".',
     },
   },
+  etat: {
+    type: Boolean,
+    default: false, // Par défaut, la plante est inactive
+  },
 });
 
 // Créer le modèle "Plante"
