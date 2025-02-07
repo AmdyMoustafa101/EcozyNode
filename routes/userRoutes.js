@@ -279,6 +279,9 @@ router.post("/login", async (req, res) => {
         nom: user.nom,
         prenom: user.prenom,
         photo: user.photo,
+        telephone: user.telephone,
+        codeSecret: user.codeSecret,
+        carteRFID: user.carteRFID
       },
     });
   } catch (error) {
