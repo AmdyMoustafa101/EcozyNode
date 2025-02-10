@@ -1,12 +1,24 @@
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
-const connectDB = require('./config/db.js');
 const mongoose = require("mongoose");
 const Plante = require('./models/Plante');
 const ProgrammeArrosage = require('./models/ProgrammeArrosage');
 
 const app = express();
+const http = require("http");
+const { Server } = require("socket.io");
+const connectDB = require("./config/db"); // Importer la configuration de connexion à MongoDB
+const AverageService = require("./services/AverageService"); // Importer le service pour les moyennes
+
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:4200",
+    methods: ["GET", "POST"],
+  },
+});
 
 // Middleware pour parser le JSON dans le corps des requêtes
 app.use(express.json());
@@ -76,17 +88,28 @@ app.get("/api/sensor-data", (req, res) => {
 });
 
 // Endpoint POST pour recevoir les données envoyées directement par l'appareil via WiFi
-app.post("/api/data", (req, res) => {
+app.post("/api/data", async (req, res) => {
   const { hum: h, lum: b } = req.body;
 
-  // Vérifier que les données reçues sont bien des nombres
   if (typeof h !== "number" || typeof b !== "number") {
     return res.status(400).json({ error: "Données invalides" });
   }
 
   humidity = h;
   brightness = b;
-  console.log(`POST request: Données reçues => Humidité: ${humidity}, Luminosité: ${brightness}`);
+  console.log(
+    `POST request: Données reçues => Humidité: ${humidity}, Luminosité: ${brightness}`
+  );
+
+  addHistoricalData(humidity, brightness);
+  io.emit("sensor-data", { humidity, brightness });
+
+  const now = new Date();
+  const date = now.toISOString().split("T")[0];
+  const targetTimes = ["18:25", "18:26", "18:27"];
+  const { averages, overallAverage } = calculateAverages(date, targetTimes);
+
+  await AverageService.saveAverages(date, averages, overallAverage);
 
   res.status(200).json({ message: "Données reçues" });
 });
@@ -110,6 +133,8 @@ app.post("/api/control-pump", async (req, res) => {
   }
 });
 
-app.listen(3002, () => {
+
+server.listen(3002, () => {
   console.log("Server is running on port 3002");
-});
+})
+

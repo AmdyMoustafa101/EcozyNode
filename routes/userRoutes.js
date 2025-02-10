@@ -87,7 +87,7 @@ router.get("/users", async (req, res) => {
 });
 
 //  Route pour récupérer un utilisateur par son ID
-router.get("/users/:id", async (req, res) => {  
+router.get("/users/:id", async (req, res) => {
   try {
     const userId = req.params.id;
     const user = await User.findById(userId); // Récupérer uniquement les utilisateurs non archivés
@@ -197,6 +197,35 @@ router.patch("/users/:id/archive", async (req, res) => {
       message: `Erreur lors de ${
         archived ? "l'archivage" : "le désarchivage"
       } de l’utilisateur`,
+      error,
+    });
+  }
+});
+
+// Route pour désassigner la carte d'un utilisateur
+router.post("/users/:id/remove-card", async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Récupérer l'utilisateur existant
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    // Supprimer la carte RFID
+    user.carteRFID = null;
+
+    // Sauvegarder les modifications
+    const updatedUser = await user.save();
+
+    res.status(200).json({
+      message: "Carte désassignée avec succès",
+      user: updatedUser,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Erreur lors de la désassignation de la carte",
       error,
     });
   }
