@@ -1,6 +1,9 @@
 const express = require("express");
 const cors = require("cors");
 const http = require("http");
+const axios = require("axios");
+const Plante = require("./models/Plante");
+const ProgrammeArrosage = require("./models/ProgrammeArrosage");
 const { Server } = require("socket.io");
 const connectDB = require("./config/db"); // Importer la configuration de connexion à MongoDB
 const AverageService = require("./services/averageService"); // Importer le service pour les moyennes
@@ -48,6 +51,60 @@ function addHistoricalData(humidity, brightness) {
     brightness,
   });
 }
+async function automateWatering() {
+  try {
+    const now = new Date();
+
+    // Récupérer les programmes actifs
+    const activePrograms = await ProgrammeArrosage.find({
+      etat: true,
+      dateDebut: { $lte: now },
+      dateFin: { $gte: now },
+    }).populate("idPlante");
+
+    for (const program of activePrograms) {
+      const plante = await Plante.findById(program.idPlante);
+      console.log(
+        `Arrosage de la plante ${plante.nom} programmée entre ${program.dateDebut} et ${program.dateFin}.`
+      );
+
+      if (plante.typeArrosage === "période") {
+        const currentHour =
+          now.getHours().toString().padStart(2, "0") +
+          ":" +
+          now.getMinutes().toString().padStart(2, "0");
+        if (plante.heuresArrosage.includes(currentHour)) {
+          // Activer la pompe
+          await axios.post("http://192.168.1.28:5000/control-pump", {
+            command: "ON",
+          });
+
+          // Désactiver la pompe après une durée déterminée (par exemple, 1 heure)
+          setTimeout(async () => {
+            await axios.post("http://192.168.1.28:5000/control-pump", {
+              command: "OFF",
+            });
+          }, 1 * 60 * 60 * 1000); // 1 heure
+        }
+      } else if (plante.typeArrosage === "humidité") {
+        if (humidity < plante.humidite) {
+          await axios.post("http://192.168.1.28:5000/control-pump", {
+            command: "ON",
+          });
+        } else {
+          await axios.post("http://192.168.1.28:5000/control-pump", {
+            command: "OFF",
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Erreur lors de l'automatisation de l'arrosage :", error);
+  }
+}
+
+// Appeler automateWatering toutes les minutes
+setInterval(automateWatering, 60 * 1000);
 
 // Fonction pour calculer les moyennes à des heures spécifiques
 function calculateAverages(date, targetTimes) {
@@ -130,6 +187,27 @@ app.get("/api/averages", async (req, res) => {
   res.json({ date, averages: averages ? averages.averages : {} });
 });
 
-server.listen(3002, () => {
+server.app // Endpoint POST pour contrôler la pompe
+  .post("/api/control-pump", async (req, res) => {
+    const { command } = req.body.command;
+
+    console.log("command: " + command);
+
+    if (command !== "ON" && command !== "OFF") {
+      return res.status(400).json({ error: "Commande invalide" });
+    }
+
+    try {
+      const response = await axios.post(
+        "http://192.168.1.28:5000/control-pump",
+        { command }
+      );
+      res.status(200).json({ message: response.data.message });
+    } catch (error) {
+      console.error("Erreur lors du contrôle de la pompe:", error);
+      res.status(500).json({ error: "Erreur lors du contrôle de la pompe" });
+    }
+  });
+listen(3002, () => {
   console.log("Server is running on port 3002");
 });
