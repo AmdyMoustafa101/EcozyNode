@@ -205,14 +205,23 @@ router.post("/users/:id/remove-card", async (req, res) => {
 router.post("/assign-rfid", async (req, res) => {
   const { userId, carteRFID } = req.body;
 
+  if (!userId || !carteRFID) {
+    return res.status(400).json({ message: "Données manquantes" });
+  }
+
   try {
-    // Trouver l'utilisateur par son ID
+    const existingUser = await User.findOne({ carteRFID });
+    if (existingUser && existingUser._id.toString() !== userId) {
+      return res.status(400).json({
+        message: "Cette carte RFID est déjà assignée à un autre utilisateur",
+      });
+    }
+
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
 
-    // Mettre à jour le champ carteRFID
     user.carteRFID = carteRFID;
     await user.save();
 

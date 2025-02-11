@@ -1,30 +1,44 @@
-const Average = require("../models/verageModel"); // Assurez-vous que le chemin est correctsurez-vous que le chemin est correct
+const Average = require("../models/Average");
 
-const AverageService = {
-  async saveAverages(date, averages, overallAverage) {
-    try {
-      const existingAverage = await findOne({ date });
-      if (existingAverage) {
-        existingAverage.averages = averages;
-        existingAverage.overallAverage = overallAverage;
-        await existingAverage.save();
-      } else {
-        await create({ date, averages, overallAverage });
-      }
-    } catch (error) {
-      console.error("Erreur lors de l'enregistrement des moyennes :", error);
+async function saveAverages(date, averages, overallAverage, historicalData) {
+  try {
+    // Vérifier si une entrée existe déjà pour cette date
+    let averageEntry = await Average.findOne({ date });
+
+    if (!averageEntry) {
+      // Créer une nouvelle entrée
+      averageEntry = new Average({
+        date,
+        averages,
+        overallAverage,
+        historicalData,
+      });
+    } else {
+      // Mettre à jour l'entrée existante
+      averageEntry.averages = averages;
+      averageEntry.overallAverage = overallAverage;
+      averageEntry.historicalData = historicalData;
     }
-  },
 
-  async getAverages(date) {
-    try {
-      const average = await findOne({ date });
-      return average;
-    } catch (error) {
-      console.error("Erreur lors de la récupération des moyennes :", error);
+    await averageEntry.save();
+    console.log("Moyennes et données historiques enregistrées avec succès.");
+  } catch (error) {
+    console.error("Erreur lors de l'enregistrement des moyennes :", error);
+  }
+}
+
+async function getAverages(date) {
+  try {
+    const averageEntry = await Average.findOne({ date });
+    if (averageEntry) {
+      return averageEntry.overallAverage;
+    } else {
       return null;
     }
-  },
-};
+  } catch (error) {
+    console.error("Erreur lors de la récupération des moyennes :", error);
+    return null;
+  }
+}
 
-export default AverageService;
+module.exports = { saveAverages, getAverages };

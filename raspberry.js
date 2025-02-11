@@ -34,6 +34,7 @@ app.use(
 
 let humidity = 0;
 let brightness = 0;
+let waterlevel = 0;
 
 // Tableau pour stocker les données historiques
 let historicalData = [];
@@ -51,6 +52,7 @@ function addHistoricalData(humidity, brightness) {
     brightness,
   });
 }
+
 async function automateWatering() {
   try {
     const now = new Date();
@@ -103,9 +105,6 @@ async function automateWatering() {
   }
 }
 
-// Appeler automateWatering toutes les minutes
-setInterval(automateWatering, 60 * 1000);
-
 // Fonction pour calculer les moyennes à des heures spécifiques
 function calculateAverages(date, targetTimes) {
   const dailyData = historicalData.filter((entry) => entry.date === date);
@@ -131,7 +130,7 @@ function calculateAverages(date, targetTimes) {
       totalBrightness += avgBrightness;
       count++;
     } else {
-      averages[time] = { humidity: 0, brightness: 0 };
+      averages[time] = { humidity: 0, brightness: 0, waterLevel: 0 };
     }
   });
 
@@ -143,35 +142,48 @@ function calculateAverages(date, targetTimes) {
   return { averages, overallAverage };
 }
 
+// Appeler automateWatering toutes les minutes
+setInterval(automateWatering, 60 * 1000);
+
 // Endpoint GET pour renvoyer les données actuelles
 app.get("/api/sensor-data", (req, res) => {
   console.log("GET request received for sensor data");
-  res.json({ humidity, brightness });
+  res.json({ humidity, brightness, waterLevel });
 });
 
 // Endpoint POST pour recevoir les données envoyées directement par l'appareil via WiFi
 app.post("/api/data", async (req, res) => {
-  const { hum: h, lum: b } = req.body;
-
-  if (typeof h !== "number" || typeof b !== "number") {
+  const { hum: h, lum: b, water: c } = req.body;
+  if (typeof h !== "number" || typeof b !== "number" || typeof c !== "number") {
     return res.status(400).json({ error: "Données invalides" });
   }
 
   humidity = h;
   brightness = b;
+  waterlevel = c;
   console.log(
-    `POST request: Données reçues => Humidité: ${humidity}, Luminosité: ${brightness}`
+    `POST request: Données reçues => Humidité: ${humidity}, Luminosité: ${brightness},Niveau d'eau: ${waterlevel}`
   );
 
+  // Ajouter les données historiques
   addHistoricalData(humidity, brightness);
-  io.emit("sensor-data", { humidity, brightness });
 
+  // Émettre les données via Socket.IO
+  io.emit("sensor-data", { humidity, brightness, waterlevel });
+
+  // Calculer les moyennes
   const now = new Date();
   const date = now.toISOString().split("T")[0];
-  const targetTimes = ["18:25", "18:26", "18:27"];
+  const targetTimes = ["16:17", "16:18", "16:19"];
   const { averages, overallAverage } = calculateAverages(date, targetTimes);
 
-  await AverageService.saveAverages(date, averages, overallAverage);
+  // Enregistrer les moyennes et les données historiques
+  await AverageService.saveAverages(
+    date,
+    averages,
+    overallAverage,
+    historicalData
+  );
 
   res.status(200).json({ message: "Données reçues" });
 });
@@ -183,31 +195,38 @@ app.get("/api/averages", async (req, res) => {
     return res.status(400).json({ error: "Date manquante" });
   }
 
-  const averages = await AverageService.getAverages(date);
-  res.json({ date, averages: averages ? averages.averages : {} });
+  const overallAverage = await AverageService.getAverages(date);
+  if (overallAverage !== null) {
+    res.json({
+      date,
+      overallAverage,
+    });
+  } else {
+    res.status(404).json({ error: "Aucune donnée trouvée pour cette date" });
+  }
 });
 
-server.app // Endpoint POST pour contrôler la pompe
-  .post("/api/control-pump", async (req, res) => {
-    const { command } = req.body.command;
+// Endpoint POST pour contrôler la pompe
+app.post("/api/control-pump", async (req, res) => {
+  const { command } = req.body.command;
 
-    console.log("command: " + command);
+  console.log("command: " + command);
 
-    if (command !== "ON" && command !== "OFF") {
-      return res.status(400).json({ error: "Commande invalide" });
-    }
+  if (command !== "ON" && command !== "OFF") {
+    return res.status(400).json({ error: "Commande invalide" });
+  }
 
-    try {
-      const response = await axios.post(
-        "http://192.168.1.28:5000/control-pump",
-        { command }
-      );
-      res.status(200).json({ message: response.data.message });
-    } catch (error) {
-      console.error("Erreur lors du contrôle de la pompe:", error);
-      res.status(500).json({ error: "Erreur lors du contrôle de la pompe" });
-    }
-  });
-listen(3002, () => {
+  try {
+    const response = await axios.post("http://192.168.1.28:5000/control-pump", {
+      command,
+    });
+    res.status(200).json({ message: response.data.message });
+  } catch (error) {
+    console.error("Erreur lors du contrôle de la pompe:", error);
+    res.status(500).json({ error: "Erreur lors du contrôle de la pompe" });
+  }
+});
+
+server.listen(3002, () => {
   console.log("Server is running on port 3002");
 });
