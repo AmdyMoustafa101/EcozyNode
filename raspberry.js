@@ -39,6 +39,61 @@ connectDB();
 let humidity = 0;
 let brightness = 0;
 
+// Tableau pour stocker les données historiques
+let historicalData = [];
+
+// Fonction pour ajouter des données historiques
+function addHistoricalData(humidity, brightness) {
+  const now = new Date();
+  const date = now.toISOString().split("T")[0]; // Format YYYY-MM-DD
+  const time = now.toTimeString().split(" ")[0]; // Format HH:MM:SS
+
+  historicalData.push({
+    date,
+    time,
+    humidity,
+    brightness,
+  });
+}
+
+
+// Fonction pour calculer les moyennes à des heures spécifiques
+function calculateAverages(date, targetTimes) {
+  const dailyData = historicalData.filter((entry) => entry.date === date);
+  const averages = {};
+  let totalHumidity = 0;
+  let totalBrightness = 0;
+  let count = 0;
+
+  targetTimes.forEach((time) => {
+    const filteredData = dailyData.filter((entry) =>
+      entry.time.startsWith(time)
+    );
+    if (filteredData.length > 0) {
+      const avgHumidity =
+        filteredData.reduce((sum, entry) => sum + entry.humidity, 0) /
+        filteredData.length;
+      const avgBrightness =
+        filteredData.reduce((sum, entry) => sum + entry.brightness, 0) /
+        filteredData.length;
+      averages[time] = { humidity: avgHumidity, brightness: avgBrightness };
+
+      totalHumidity += avgHumidity;
+      totalBrightness += avgBrightness;
+      count++;
+    } else {
+      averages[time] = { humidity: 0, brightness: 0 };
+    }
+  });
+
+  const overallAverage = {
+    humidity: count > 0 ? totalHumidity / count : 0,
+    brightness: count > 0 ? totalBrightness / count : 0,
+  };
+
+  return { averages, overallAverage };
+}
+
 async function automateWatering() {
   try {
     const now = new Date();
@@ -100,6 +155,7 @@ app.post("/api/data", async (req, res) => {
   console.log(
     `POST request: Données reçues => Humidité: ${humidity}, Luminosité: ${brightness}`
   );
+
 
   addHistoricalData(humidity, brightness);
   io.emit("sensor-data", { humidity, brightness });
