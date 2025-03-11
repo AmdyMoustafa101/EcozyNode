@@ -77,24 +77,24 @@ async function automateWatering() {
           now.getMinutes().toString().padStart(2, "0");
         if (plante.heuresArrosage.includes(currentHour)) {
           // Activer la pompe
-          await axios.post("http://192.168.1.28:5000/control-pump", {
+          await axios.post("http://192.168.1.69:5000/control-pump", {
             command: "ON",
           });
 
           // Désactiver la pompe après une durée déterminée (par exemple, 1 heure)
           setTimeout(async () => {
-            await axios.post("http://192.168.1.28:5000/control-pump", {
+            await axios.post("http://192.168.1.69:5000/control-pump", {
               command: "OFF",
             });
-          }, 1 * 60 * 60 * 1000); // 1 heure
+          }, 30 * 1000);
         }
       } else if (plante.typeArrosage === "humidité") {
         if (humidity < plante.humidite) {
-          await axios.post("http://192.168.1.28:5000/control-pump", {
+          await axios.post("http://192.168.1.69:5000/control-pump", {
             command: "ON",
           });
         } else {
-          await axios.post("http://192.168.1.28:5000/control-pump", {
+          await axios.post("http://192.168.1.69:5000/control-pump", {
             command: "OFF",
           });
         }
@@ -130,7 +130,7 @@ function calculateAverages(date, targetTimes) {
       totalBrightness += avgBrightness;
       count++;
     } else {
-      averages[time] = { humidity: 0, brightness: 0, waterLevel: 0 };
+      averages[time] = { humidity: 0, brightness: 0, waterlevel: 0 };
     }
   });
 
@@ -143,12 +143,12 @@ function calculateAverages(date, targetTimes) {
 }
 
 // Appeler automateWatering toutes les minutes
-setInterval(automateWatering, 60 * 1000);
+setInterval(automateWatering, 10 * 1000);
 
 // Endpoint GET pour renvoyer les données actuelles
 app.get("/api/sensor-data", (req, res) => {
   console.log("GET request received for sensor data");
-  res.json({ humidity, brightness, waterLevel });
+  res.json({ humidity, brightness, waterevel });
 });
 
 // Endpoint POST pour recevoir les données envoyées directement par l'appareil via WiFi
@@ -217,7 +217,7 @@ app.post("/api/control-pump", async (req, res) => {
   }
 
   try {
-    const response = await axios.post("http://192.168.1.28:5000/control-pump", {
+    const response = await axios.post("http://192.168.1.69:5000/control-pump", {
       command,
     });
     res.status(200).json({ message: response.data.message });

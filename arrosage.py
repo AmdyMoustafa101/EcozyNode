@@ -11,7 +11,7 @@ port = '/dev/ttyUSB0'
 baudrate = 9600
 
 # Configuration du serveur Node.js
-server_host = "192.168.1.39"  # Remplacez par l'adresse IP locale de votre serveur
+server_host = "192.168.1.59"  # Remplacez par l'adresse IP locale de votre serveur
 server_port = 3002
 server_endpoint = "/api/data"
 
